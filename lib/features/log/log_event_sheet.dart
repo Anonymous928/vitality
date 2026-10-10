@@ -9,6 +9,7 @@ Future<void> showLogEventSheet(BuildContext context) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    useRootNavigator: true, // cover the bottom NavigationBar
     showDragHandle: true,
     useSafeArea: true,
     builder: (_) => const LogEventSheet(),

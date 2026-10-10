@@ -1,6 +1,4 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 /// Schedules the follow-up check-ins after an episode (PRD §6.2):
@@ -46,9 +44,6 @@ class CheckInScheduler {
   /// on the startup critical path.
   Future<void> _ensureReady() async {
     if (_ready) return;
-    tzdata.initializeTimeZones();
-    final local = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(local.identifier));
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@drawable/ic_stat_notify'),
@@ -92,7 +87,9 @@ class CheckInScheduler {
         id: _id(episodeId, i),
         title: text,
         body: 'Tap to rate how you feel',
-        scheduledDate: tz.TZDateTime.from(when, tz.local),
+        // Reminders are absolute instants (episode + offset), so UTC is
+        // exact and needs no timezone database or device zone lookup.
+        scheduledDate: tz.TZDateTime.from(when, tz.UTC),
         notificationDetails: const NotificationDetails(android: _channel),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         payload: 'checkin:$episodeId',
