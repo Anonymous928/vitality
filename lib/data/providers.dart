@@ -1,9 +1,14 @@
+import 'dart:isolate';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/domain.dart';
+import 'analysis.dart';
 import 'app_settings.dart';
 import 'database.dart';
 import 'episode_repository.dart';
+import 'self_check.dart';
+import 'treatment_repository.dart';
 
 /// Overridden in main() with the opened database, so nothing downstream ever
 /// has to await the DB.
@@ -17,6 +22,32 @@ final initialSettingsProvider = Provider<AppSettings>(
 
 final episodeRepositoryProvider =
     Provider((ref) => EpisodeRepository(ref.watch(databaseProvider)));
+
+final treatmentRepositoryProvider =
+    Provider((ref) => TreatmentRepository(ref.watch(databaseProvider)));
+
+final assessmentRepositoryProvider =
+    Provider((ref) => AssessmentRepository(ref.watch(databaseProvider)));
+
+final treatmentsProvider = StreamProvider<List<Treatment>>(
+  (ref) => ref.watch(treatmentRepositoryProvider).watchAll(),
+);
+
+final latestSelfCheckProvider = StreamProvider<(DateTime, SelfCheckAnswers)?>(
+  (ref) => ref.watch(assessmentRepositoryProvider).watchLatest(),
+);
+
+final allCheckInsProvider = StreamProvider<List<CheckIn>>(
+  (ref) => ref.watch(episodeRepositoryProvider).watchAllCheckIns(),
+);
+
+/// Recomputed off the UI thread whenever episodes or check-ins change
+/// (PRD §10.7 rule 3).
+final insightsProvider = FutureProvider<InsightsSummary>((ref) async {
+  final episodes = await ref.watch(allEpisodesProvider.future);
+  final checkIns = await ref.watch(allCheckInsProvider.future);
+  return Isolate.run(() => computeInsights(episodes, checkIns));
+});
 
 final settingsProvider =
     NotifierProvider<SettingsController, AppSettings>(SettingsController.new);

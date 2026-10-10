@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/domain.dart';
+import '../../core/native_bridge.dart';
+import '../../data/export.dart';
 import '../../data/providers.dart';
 import '../lock/lock_gate.dart';
 
@@ -54,6 +58,34 @@ class SettingsScreen extends ConsumerWidget {
             value: s.dynamicColor,
             onChanged: (v) => ctl.update((x) => x.copyWith(dynamicColor: v)),
           ),
+          header('Your records'),
+          ListTile(
+            leading: const Icon(Icons.medication_outlined),
+            title: const Text('Treatments'),
+            subtitle: const Text('What you take or have tried'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/treatments'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.fact_check_outlined),
+            title: const Text('Self-check'),
+            subtitle: const Text('Retake the POIS self-check'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/self-check'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('Doctor report'),
+            subtitle: const Text('Create a PDF for an appointment'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/report'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_download_outlined),
+            title: const Text('Export data'),
+            subtitle: const Text('All your logs as a JSON file'),
+            onTap: () => _export(context, ref),
+          ),
           header('Check-ins'),
           ListTile(
             title: const Text('Your top 3 symptoms'),
@@ -98,6 +130,49 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded),
+        title: const Text('This file is not encrypted'),
+        content: const Text(
+            'The export contains everything you have logged, in plain text. '
+            'Anyone who can open the file can read it. Store it somewhere '
+            'private.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, 'share'),
+              child: const Text('Share')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, 'save'),
+              child: const Text('Save to device')),
+        ],
+      ),
+    );
+    if (choice == null) return;
+    final bytes = await buildExport(ref.read(databaseProvider));
+    final d = DateTime.now();
+    String two(int n) => n.toString().padLeft(2, '0');
+    final name = 'journal-export-${d.year}-${two(d.month)}-${two(d.day)}.json';
+    if (choice == 'save') {
+      final ok = await NativeBridge.saveDocument(
+          name: name, mime: 'application/json', bytes: bytes);
+      if (ok && context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Export saved')));
+      }
+    } else {
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile.fromData(bytes, mimeType: 'application/json')],
+        fileNameOverrides: [name],
+      ));
+    }
   }
 
   Future<void> _pickTopSymptoms(BuildContext context, WidgetRef ref) async {

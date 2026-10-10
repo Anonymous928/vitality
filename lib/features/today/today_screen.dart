@@ -7,12 +7,29 @@ import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../log/log_event_sheet.dart';
 
+/// Set when the home-screen widget asks to log; Today opens the sheet.
+final pendingLogProvider =
+    NotifierProvider<PendingLog, bool>(PendingLog.new);
+
+class PendingLog extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void request() => state = true;
+  void clear() => state = false;
+}
+
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(activeEpisodeProvider).value;
+    if (ref.watch(pendingLogProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(pendingLogProvider.notifier).clear();
+        if (context.mounted) showLogEventSheet(context);
+      });
+    }
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -31,7 +48,8 @@ class TodayScreen extends ConsumerWidget {
           _InfoCard(
             icon: Icons.description_outlined,
             title: 'Prepare for a doctor visit',
-            subtitle: 'Build a report from your logs (coming soon)',
+            subtitle: 'Create a PDF report from your logs',
+            onTap: () => context.push('/report'),
           ),
           const _InfoCard(
             icon: Icons.lightbulb_outline,
@@ -189,9 +207,13 @@ class _Last30Card extends ConsumerWidget {
 
 class _InfoCard extends StatelessWidget {
   const _InfoCard(
-      {required this.icon, required this.title, required this.subtitle});
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      this.onTap});
   final IconData icon;
   final String title, subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -201,6 +223,8 @@ class _InfoCard extends StatelessWidget {
         leading: Icon(icon),
         title: Text(title),
         subtitle: Text(subtitle),
+        trailing: onTap == null ? null : const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }

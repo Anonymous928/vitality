@@ -45,6 +45,16 @@
             </intent-filter>
         </activity>
 
+        <!-- Home-screen "Log event" widget. -->
+        <receiver android:name=".LogWidgetProvider" android:exported="false"
+            android:label="@string/widget_log_event">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/log_widget_info" />
+        </receiver>
+
         <!-- flutter_local_notifications: deliver scheduled reminders and
              reschedule them after reboot. -->
         <receiver android:exported="false"

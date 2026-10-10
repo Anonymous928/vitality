@@ -35,6 +35,7 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
   int? _sleep;
   bool? _alcohol;
   int? _stress;
+  final _pre = <String>{};
   final _note = TextEditingController();
 
   @override
@@ -100,6 +101,7 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
           sleepQuality: _sleep,
           alcohol: _alcohol,
           stress: _stress,
+          preInterventions: _pre.toList(),
           note: _note.text.trim().isEmpty ? null : _note.text.trim(),
         )
         .then((id) async {
@@ -189,6 +191,35 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
     );
   }
 
+  /// Chips for treatments in the log that are currently ongoing.
+  List<Widget> _takenBefore(ThemeData theme) {
+    final names = {
+      for (final t in ref.watch(treatmentsProvider).value ?? const [])
+        if (t.endedAt == null) t.name,
+    };
+    if (names.isEmpty) return const [];
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 6),
+        child: Text('Taken beforehand', style: theme.textTheme.bodyMedium),
+      ),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final n in names)
+            FilterChip(
+              label: Text(n),
+              selected: _pre.contains(n),
+              onSelected: (on) =>
+                  setState(() => on ? _pre.add(n) : _pre.remove(n)),
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
+    ];
+  }
+
   static String _formatPicked(BuildContext context, DateTime t) {
     final loc = MaterialLocalizations.of(context);
     return '${loc.formatShortMonthDay(t)}, '
@@ -231,7 +262,7 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
             ],
           ),
         ),
-        // Before-interventions picker arrives with the treatment log.
+        ..._takenBefore(theme),
         TextField(
           controller: _note,
           maxLines: 2,

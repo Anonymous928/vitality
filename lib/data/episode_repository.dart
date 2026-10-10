@@ -39,6 +39,8 @@ class EpisodeRepository {
     return q.watchSingleOrNull();
   }
 
+  Stream<List<CheckIn>> watchAllCheckIns() => _db.select(_db.checkIns).watch();
+
   Stream<List<CheckIn>> watchCheckInsBetween(DateTime from, DateTime to) {
     final q = _db.select(_db.checkIns)
       ..where((c) => c.at.isBetweenValues(from, to))

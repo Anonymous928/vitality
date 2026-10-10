@@ -10,6 +10,12 @@ class LearnScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
+        _Section(
+          icon: Icons.fact_check_outlined,
+          title: 'Self-check',
+          subtitle: 'Compare your experience with the POIS criteria',
+          onTap: () => context.push('/self-check'),
+        ),
         const _Section(
           icon: Icons.science_outlined,
           title: 'Evidence library',
