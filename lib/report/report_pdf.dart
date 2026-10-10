@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -71,6 +72,12 @@ const _muted = PdfColor.fromInt(0xFF5C5F63);
 const _rule = PdfColor.fromInt(0xFFD5D7DB);
 const _accent = PdfColor.fromInt(0xFF2A78D6); // dataviz slot 1 (light)
 const _reference = PdfColor.fromInt(0xFF74777F); // neutral reference line
+
+/// Runs [buildReportPdf] on a background isolate. Deliberately a top-level,
+/// non-async function: a closure created inside an async method or a State
+/// captures that whole context, which can't be sent to another isolate.
+Future<Uint8List> buildReportPdfInBackground(ReportInput input) =>
+    Isolate.run(() => buildReportPdf(input));
 
 Future<Uint8List> buildReportPdf(ReportInput input) async {
   final theme = pw.ThemeData.withFont(
@@ -315,7 +322,8 @@ List<pw.Widget> _summary(ReportInput input, InsightsSummary s) {
           'Events with any symptoms',
           s.pctSymptomatic == null
               ? '-'
-              : '${(s.pctSymptomatic! * 100).round()}% (${s.episodesWithCheckIns} events rated)',
+              : '${(s.pctSymptomatic! * 100).round()}% (${s.episodesWithCheckIns} '
+                    '${s.episodesWithCheckIns == 1 ? 'event' : 'events'} rated)',
         ],
         [
           'Mean time to worst symptoms',
@@ -325,7 +333,8 @@ List<pw.Widget> _summary(ReportInput input, InsightsSummary s) {
           'Mean time to recovery',
           s.meanDurationHours == null
               ? '-'
-              : '${formatHours(s.meanDurationHours!)} (${s.recoveredCount} recovered events)',
+              : '${formatHours(s.meanDurationHours!)} (${s.recoveredCount} recovered '
+                    '${s.recoveredCount == 1 ? 'event' : 'events'})',
         ],
       ],
       widths: const {0: pw.FixedColumnWidth(170)},

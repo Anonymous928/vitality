@@ -1,5 +1,3 @@
-import 'dart:isolate';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/domain.dart';
@@ -46,7 +44,7 @@ final allCheckInsProvider = StreamProvider<List<CheckIn>>(
 final insightsProvider = FutureProvider<InsightsSummary>((ref) async {
   final episodes = await ref.watch(allEpisodesProvider.future);
   final checkIns = await ref.watch(allCheckInsProvider.future);
-  return Isolate.run(() => computeInsights(episodes, checkIns));
+  return computeInsightsInBackground(episodes, checkIns);
 });
 
 final settingsProvider =

@@ -9,11 +9,15 @@ import '../../data/self_check.dart';
 /// page with the Waldinger checklist. Saved as an Assessment when the
 /// result is shown. Used standalone and inside onboarding.
 class SelfCheckFlow extends ConsumerStatefulWidget {
-  const SelfCheckFlow({super.key, required this.onFinished, this.finishLabel});
+  const SelfCheckFlow(
+      {super.key, required this.onFinished, this.finishLabel, this.onResult});
 
   /// Called when the user leaves the result page.
   final ValueChanged<SelfCheckAnswers> onFinished;
   final String? finishLabel;
+
+  /// Called when the result page appears (onboarding hides "Skip").
+  final VoidCallback? onResult;
 
   @override
   ConsumerState<SelfCheckFlow> createState() => _SelfCheckFlowState();
@@ -47,6 +51,7 @@ class _SelfCheckFlowState extends ConsumerState<SelfCheckFlow> {
   void _go(int page) {
     if (page == _questionCount) {
       ref.read(assessmentRepositoryProvider).save(_a);
+      widget.onResult?.call();
     }
     setState(() => _page = page);
     _pages.animateToPage(page,
@@ -67,7 +72,10 @@ class _SelfCheckFlowState extends ConsumerState<SelfCheckFlow> {
               children: [
                 Expanded(
                   child: LinearProgressIndicator(
-                      value: (_page + 1) / _questionCount),
+                    value: (_page + 1) / _questionCount,
+                    semanticsLabel: 'Self-check progress',
+                    semanticsValue: 'Question ${_page + 1} of $_questionCount',
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text('${_page + 1} of $_questionCount',

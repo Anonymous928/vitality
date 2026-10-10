@@ -76,12 +76,17 @@ class InsightsScreen extends ConsumerWidget {
             ('Typical recovery', formatHours(s.meanDurationHours!),
                 '${s.recoveredCount} recovered'),
           if (s.meanPeakHours != null)
-            ('Worst point', 'about ${formatHours(s.meanPeakHours!)}',
+            ('Worst point',
+                s.meanPeakHours! < 1
+                    ? formatHours(s.meanPeakHours!)
+                    : 'about ${formatHours(s.meanPeakHours!)}',
                 'after the event'),
           if (s.pctSymptomatic != null)
             ('Had symptoms', '${(s.pctSymptomatic! * 100).round()}%',
-                'of ${s.episodesWithCheckIns} rated events'),
-          ('Events logged', '${s.episodeCount}', '${s.checkInCount} check-ins'),
+                'of ${s.episodesWithCheckIns} rated '
+                    '${s.episodesWithCheckIns == 1 ? 'event' : 'events'}'),
+          ('Events logged', '${s.episodeCount}',
+              '${s.checkInCount} ${s.checkInCount == 1 ? 'check-in' : 'check-ins'}'),
         ]),
         if (s.episodesWithCheckIns > 0) ...[
           const SizedBox(height: 16),

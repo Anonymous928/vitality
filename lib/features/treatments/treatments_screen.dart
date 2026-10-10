@@ -207,6 +207,7 @@ class _TreatmentEditScreenState extends ConsumerState<TreatmentEditScreen> {
             decoration: const InputDecoration(
               labelText: 'Dose (optional)',
               helperText: 'As you were told to take it. The app never suggests doses.',
+              helperMaxLines: 2,
               border: OutlineInputBorder(),
             ),
           ),

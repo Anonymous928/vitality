@@ -20,6 +20,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pages = PageController();
   int _page = 0;
   List<SymptomCluster> _top = [...SymptomCluster.defaultTop3];
+  bool _selfCheckDone = false;
 
   @override
   void dispose() {
@@ -67,11 +68,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               children: [
                 _SkipBar(
                   title: 'Self-check',
-                  onSkip: _next,
+                  onSkip: _selfCheckDone ? null : _next,
                 ),
                 Expanded(
                   child: SelfCheckFlow(
                     finishLabel: 'Continue',
+                    onResult: () => setState(() => _selfCheckDone = true),
                     onFinished: (a) {
                       final picked = [
                         for (final s in SymptomCluster.values)
@@ -263,7 +265,7 @@ class _Bullet extends StatelessWidget {
 class _SkipBar extends StatelessWidget {
   const _SkipBar({required this.title, required this.onSkip});
   final String title;
-  final VoidCallback onSkip;
+  final VoidCallback? onSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -273,7 +275,12 @@ class _SkipBar extends StatelessWidget {
         children: [
           Text(title, style: Theme.of(context).textTheme.titleMedium),
           const Spacer(),
-          TextButton(onPressed: onSkip, child: const Text('Skip for now')),
+          // Keeps the bar's height stable once the result page shows.
+          Visibility.maintain(
+            visible: onSkip != null,
+            child: TextButton(
+                onPressed: onSkip, child: const Text('Skip for now')),
+          ),
         ],
       ),
     );

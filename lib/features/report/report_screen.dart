@@ -1,5 +1,3 @@
-import 'dart:isolate';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,12 +41,16 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       _pdf = null;
     });
     try {
-      final latest = await ref.read(latestSelfCheckProvider.future);
+      // One-shot DB reads, not provider futures: Riverpod pauses providers
+      // that no visible widget is listening to, so their futures can hang.
+      final episodes = ref.read(episodeRepositoryProvider);
+      final latest =
+          await ref.read(assessmentRepositoryProvider).watchLatest().first;
       final input = ReportInput(
         sections: Set.of(_sections),
-        episodes: await ref.read(allEpisodesProvider.future),
-        checkIns: await ref.read(allCheckInsProvider.future),
-        treatments: await ref.read(treatmentsProvider.future),
+        episodes: await episodes.watchEpisodes().first,
+        checkIns: await episodes.watchAllCheckIns().first,
+        treatments: await ref.read(treatmentRepositoryProvider).all(),
         selfCheck: latest?.$2,
         selfCheckDate: latest?.$1,
         workImpact: _work,
@@ -63,7 +65,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
             .asUint8List(),
       );
       // Off the UI thread (PRD §10.7): the screen stays responsive.
-      final bytes = await Isolate.run(() => buildReportPdf(input));
+      final bytes = await buildReportPdfInBackground(input);
       if (mounted) setState(() => _pdf = bytes);
     } catch (e) {
       if (mounted) {
@@ -146,7 +148,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
-                  labelText: 'Days of work or study missed in the last month',
+                  labelText: 'Days missed last month',
+                  helperText: 'Work or study days missed because of symptoms',
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (_) => setState(() => _pdf = null),

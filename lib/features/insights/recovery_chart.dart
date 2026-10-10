@@ -93,8 +93,17 @@ class RecoveryChart extends StatelessWidget {
               minY: 0,
               maxY: 3,
               lineBarsData: series,
-              clipData: const FlClipData.all(),
-              borderData: FlBorderData(show: false),
+              // Points past maxX are filtered out above; don't clip, or
+              // dots on the None/Severe edges get cut in half.
+              clipData: const FlClipData.none(),
+              // fl_chart skips grid lines on the min/max edges, so the
+              // None and Severe lines come from the top/bottom border.
+              borderData: FlBorderData(
+                border: Border.symmetric(
+                  horizontal:
+                      BorderSide(color: scheme.outlineVariant, width: 1),
+                ),
+              ),
               gridData: FlGridData(
                 drawVerticalLine: false,
                 horizontalInterval: 1,

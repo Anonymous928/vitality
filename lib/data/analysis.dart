@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:math' as math;
 
 import '../core/domain.dart';
@@ -34,8 +35,11 @@ class TreatmentComparison {
 }
 
 class GroupStats {
-  const GroupStats(
-      {required this.episodes, this.meanPeak, this.meanDurationHours});
+  const GroupStats({
+    required this.episodes,
+    this.meanPeak,
+    this.meanDurationHours,
+  });
   final int episodes;
   final double? meanPeak; // 0..3
   final double? meanDurationHours;
@@ -85,12 +89,21 @@ class InsightsSummary {
 
 const baselineMinEpisodes = 3;
 
+/// [computeInsights] on a background isolate (top-level and non-async so the
+/// closure only captures the two lists).
+Future<InsightsSummary> computeInsightsInBackground(
+  List<Episode> episodes,
+  List<CheckIn> checkIns,
+) => Isolate.run(() => computeInsights(episodes, checkIns));
+
 /// Bin edges (hours) for the average curve: dense early, where symptoms
 /// change fastest, sparse later.
 const curveBinEdges = [0, 3, 6, 12, 24, 36, 48, 72, 96, 120, 144, 168];
 
 InsightsSummary computeInsights(
-    List<Episode> episodes, List<CheckIn> checkIns) {
+  List<Episode> episodes,
+  List<CheckIn> checkIns,
+) {
   final byEpisode = <int, List<CheckIn>>{};
   for (final c in checkIns) {
     (byEpisode[c.episodeId] ??= []).add(c);
@@ -105,8 +118,9 @@ InsightsSummary computeInsights(
       e.recoveredAt!.difference(e.occurredAt).inMinutes / 60.0,
   ];
 
-  final withCheckIns =
-      episodes.where((e) => byEpisode.containsKey(e.id)).toList();
+  final withCheckIns = episodes
+      .where((e) => byEpisode.containsKey(e.id))
+      .toList();
 
   final peakHours = <double>[];
   var symptomatic = 0;
@@ -120,20 +134,23 @@ InsightsSummary computeInsights(
     peakHours.add(_hoursSince(e, worst.at));
     if (worst.severity != Severity.none) symptomatic++;
     for (final s in SymptomCluster.values) {
-      if (list.any((c) =>
-          (c.symptomScores[s]?.index ?? 0) >= Severity.mild.index)) {
+      if (list.any(
+        (c) => (c.symptomScores[s]?.index ?? 0) >= Severity.mild.index,
+      )) {
         symptomEpisodes[s] = symptomEpisodes[s]! + 1;
       }
     }
   }
 
-  final baselineEpisodes =
-      recovered.where((e) => byEpisode.containsKey(e.id)).toList();
+  final baselineEpisodes = recovered
+      .where((e) => byEpisode.containsKey(e.id))
+      .toList();
 
   EpisodeCurve? latest;
   if (withCheckIns.isNotEmpty) {
-    final e = withCheckIns
-        .reduce((a, b) => a.occurredAt.isAfter(b.occurredAt) ? a : b);
+    final e = withCheckIns.reduce(
+      (a, b) => a.occurredAt.isAfter(b.occurredAt) ? a : b,
+    );
     latest = EpisodeCurve(e, episodeCurve(e, byEpisode[e.id]!));
   }
 
@@ -143,8 +160,9 @@ InsightsSummary computeInsights(
     checkInCount: checkIns.length,
     meanDurationHours: _mean(durations),
     meanPeakHours: _mean(peakHours),
-    pctSymptomatic:
-        withCheckIns.isEmpty ? null : symptomatic / withCheckIns.length,
+    pctSymptomatic: withCheckIns.isEmpty
+        ? null
+        : symptomatic / withCheckIns.length,
     averageCurve: baselineEpisodes.length >= baselineMinEpisodes
         ? averageCurve(baselineEpisodes, byEpisode)
         : null,
@@ -168,7 +186,9 @@ List<CurvePoint> episodeCurve(Episode e, List<CheckIn> sorted) {
 /// episode contributes its worst check-in; bins entirely after recovery
 /// count as 0 so the curve returns to baseline. Empty bins are skipped.
 List<CurvePoint> averageCurve(
-    List<Episode> episodes, Map<int, List<CheckIn>> byEpisode) {
+  List<Episode> episodes,
+  Map<int, List<CheckIn>> byEpisode,
+) {
   final points = <CurvePoint>[];
   for (var b = 0; b < curveBinEdges.length - 1; b++) {
     final lo = curveBinEdges[b].toDouble();
@@ -181,23 +201,31 @@ List<CurvePoint> averageCurve(
       });
       if (inBin.isNotEmpty) {
         values.add(inBin.map((c) => c.severity.index).reduce(math.max) * 1.0);
-      } else if (e.recoveredAt != null && _hoursSince(e, e.recoveredAt!) <= lo) {
+      } else if (e.recoveredAt != null &&
+          _hoursSince(e, e.recoveredAt!) <= lo) {
         values.add(0);
       }
     }
-    if (values.isNotEmpty) points.add(CurvePoint((lo + hi) / 2, _mean(values)!));
+    if (values.isNotEmpty) {
+      points.add(CurvePoint((lo + hi) / 2, _mean(values)!));
+    }
   }
   return points;
 }
 
 /// Episodes "with" a treatment: logged as taken before, or occurring while
 /// the treatment was active. Everything else is "without".
-List<TreatmentComparison> compareTreatments(List<Treatment> treatments,
-    List<Episode> episodes, List<CheckIn> checkIns) {
+List<TreatmentComparison> compareTreatments(
+  List<Treatment> treatments,
+  List<Episode> episodes,
+  List<CheckIn> checkIns,
+) {
   final peakByEpisode = <int, int>{};
   for (final c in checkIns) {
-    peakByEpisode[c.episodeId] =
-        math.max(peakByEpisode[c.episodeId] ?? 0, c.severity.index);
+    peakByEpisode[c.episodeId] = math.max(
+      peakByEpisode[c.episodeId] ?? 0,
+      c.severity.index,
+    );
   }
   GroupStats stats(Iterable<Episode> group) {
     final peaks = [
@@ -243,6 +271,8 @@ double? _mean(List<double> xs) =>
 
 /// "2.5 days" / "18 hours".
 String formatHours(double hours) {
+  if (hours < 1) return 'under 1 hour';
+  if (hours < 1.5) return '1 hour';
   if (hours < 36) return '${hours.round()} hours';
   final days = hours / 24;
   return '${days.toStringAsFixed(days < 10 ? 1 : 0)} days';
