@@ -39,6 +39,13 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Flutter would otherwise hand any intent URI (e.g. the widget's
+                 afterglow://log) to go_router as a route, showing "Page Not
+                 Found". MainActivity handles that URI itself, and no other
+                 app should be able to push routes into this app. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
