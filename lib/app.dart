@@ -9,11 +9,13 @@ import 'features/calendar/calendar_screen.dart';
 import 'features/checkin/check_in_screen.dart';
 import 'features/insights/insights_screen.dart';
 import 'features/learn/community_screen.dart';
+import 'features/learn/evidence.dart';
 import 'features/learn/learn_screen.dart';
 import 'features/lock/lock_gate.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/report/report_screen.dart';
 import 'features/selfcheck/self_check_flow.dart';
+import 'features/settings/privacy_policy_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/today/today_screen.dart';
@@ -30,7 +32,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     // First run goes through onboarding (no paywall, ~5 steps).
     redirect: (_, state) =>
         !ref.read(settingsProvider).onboarded &&
-                state.matchedLocation != '/onboarding'
+                state.matchedLocation != '/onboarding' &&
+                state.matchedLocation != '/privacy'
             ? '/onboarding'
             : null,
     routes: [
@@ -59,6 +62,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   path: 'community',
                   builder: (_, _) => const CommunityScreen(),
                 ),
+                GoRoute(
+                  path: 'evidence',
+                  builder: (_, _) => const EvidenceLibraryScreen(),
+                ),
               ],
             ),
           ]),
@@ -75,6 +82,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: '/treatments', builder: (_, _) => const TreatmentsScreen()),
       GoRoute(path: '/self-check', builder: (_, _) => const SelfCheckScreen()),
       GoRoute(path: '/report', builder: (_, _) => const ReportScreen()),
+      // Reachable from onboarding, so the redirect above lets it through.
+      GoRoute(
+          path: '/privacy', builder: (_, _) => const PrivacyPolicyScreen()),
     ],
   );
 

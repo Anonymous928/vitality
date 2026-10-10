@@ -104,5 +104,10 @@ class CheckInScheduler {
     }
   }
 
+  Future<void> cancelAll() async {
+    await _ensureReady();
+    await _plugin.cancelAll();
+  }
+
   static int _id(int episodeId, int slot) => episodeId * 16 + slot;
 }

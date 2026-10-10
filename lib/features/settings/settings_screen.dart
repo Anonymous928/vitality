@@ -6,7 +6,9 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/domain.dart';
 import '../../core/native_bridge.dart';
 import '../../data/export.dart';
+import '../../data/app_settings.dart';
 import '../../data/providers.dart';
+import '../../notifications/check_in_scheduler.dart';
 import '../lock/lock_gate.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -119,6 +121,20 @@ class SettingsScreen extends ConsumerWidget {
             value: s.secureScreen,
             onChanged: (v) => ctl.update((x) => x.copyWith(secureScreen: v)),
           ),
+          ListTile(
+            leading: const Icon(Icons.policy_outlined),
+            title: const Text('Privacy policy'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/privacy'),
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_forever_outlined,
+                color: theme.colorScheme.error),
+            title: Text('Delete all data',
+                style: TextStyle(color: theme.colorScheme.error)),
+            subtitle: const Text('Permanently erase everything in this app'),
+            onTap: () => _deleteAll(context, ref),
+          ),
           const ListTile(
             leading: Icon(Icons.wifi_off),
             title: Text('No internet access'),
@@ -126,10 +142,62 @@ class SettingsScreen extends ConsumerWidget {
                 'This app has no network permission. Your data stays on '
                 'this phone unless you export it.'),
           ),
+          header('About'),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About Afterglow'),
+            subtitle: const Text('Version and open-source licences'),
+            onTap: () => showAboutDialog(
+              context: context,
+              applicationName: 'Afterglow',
+              applicationVersion: '1.0.0',
+              applicationLegalese:
+                  'A private, offline symptom journal. Not a medical device; '
+                  'it does not diagnose or recommend treatment.',
+            ),
+          ),
           const SizedBox(height: 24),
         ],
       ),
     );
+  }
+
+  Future<void> _deleteAll(BuildContext context, WidgetRef ref) async {
+    final theme = Theme.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(Icons.delete_forever_outlined,
+            color: theme.colorScheme.error),
+        title: const Text('Delete all data?'),
+        content: const Text(
+            'This permanently erases every event, check-in, treatment, '
+            'self-check and setting, and cancels all reminders. It cannot be '
+            'undone. Export first if you want to keep a copy.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete everything'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    // With app lock on, also require the device credential.
+    if (ref.read(settingsProvider).appLock &&
+        !await LockController.authenticate('Confirm deleting all data')) {
+      return;
+    }
+    await ref.read(databaseProvider).deleteEverything();
+    await CheckInScheduler.instance.cancelAll();
+    ref.read(settingsProvider.notifier).update((_) => const AppSettings());
+    if (context.mounted) context.go('/onboarding');
   }
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {

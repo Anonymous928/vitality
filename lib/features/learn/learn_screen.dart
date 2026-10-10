@@ -16,10 +16,11 @@ class LearnScreen extends StatelessWidget {
           subtitle: 'Compare your experience with the POIS criteria',
           onTap: () => context.push('/self-check'),
         ),
-        const _Section(
+        _Section(
           icon: Icons.science_outlined,
           title: 'Evidence library',
           subtitle: 'What research says about each treatment type',
+          onTap: () => context.go('/learn/evidence'),
         ),
         const _Section(
           icon: Icons.self_improvement,

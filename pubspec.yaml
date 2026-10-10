@@ -80,6 +80,9 @@ flutter:
   assets:
     - assets/fonts/Roboto-Regular.ttf
     - assets/fonts/Roboto-Bold.ttf
+    - assets/fonts/LICENSE-Roboto.txt
+    - assets/content/evidence.json
+    - assets/legal/privacy_policy.md
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../data/treatment_repository.dart';
+import '../learn/evidence.dart';
 
 /// Treatment log (PRD §6.4): records only what the user enters, never
 /// suggests anything.
@@ -201,6 +202,7 @@ class _TreatmentEditScreenState extends ConsumerState<TreatmentEditScreen> {
             ],
             onSelected: (v) => setState(() => _class = v),
           ),
+          _ResearchLink(treatmentClass: _class),
           const SizedBox(height: 16),
           TextField(
             controller: _dose,
@@ -258,6 +260,29 @@ class _TreatmentEditScreenState extends ConsumerState<TreatmentEditScreen> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "What does research say?" for the chosen type, from the evidence library.
+class _ResearchLink extends ConsumerWidget {
+  const _ResearchLink({required this.treatmentClass});
+  final String? treatmentClass;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lib = ref.watch(evidenceProvider).value;
+    final entry = lib?.forTreatmentClass(treatmentClass);
+    if (lib == null || entry == null) return const SizedBox(height: 8);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => EvidenceEntryScreen(library: lib, entry: entry),
+        )),
+        icon: const Icon(Icons.science_outlined, size: 18),
+        label: const Text('What does research say?'),
       ),
     );
   }

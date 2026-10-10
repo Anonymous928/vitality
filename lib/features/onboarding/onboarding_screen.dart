@@ -51,15 +51,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             _Step(
               icon: Icons.shield_outlined,
               title: 'Private by design',
-              body: const [
-                _Bullet(Icons.wifi_off,
+              body: [
+                const _Bullet(Icons.wifi_off,
                     'This app has no internet permission. Nothing you log can leave your phone unless you export it yourself.'),
-                _Bullet(Icons.no_accounts_outlined,
+                const _Bullet(Icons.no_accounts_outlined,
                     'No account, no ads, no tracking.'),
-                _Bullet(Icons.lock_outline,
+                const _Bullet(Icons.lock_outline,
                     'Your journal is stored encrypted on this phone.'),
-                _Bullet(Icons.medical_information_outlined,
+                const _Bullet(Icons.medical_information_outlined,
                     'This is a self-tracking tool. It doesn\'t diagnose or recommend treatment.'),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => context.push('/privacy'),
+                    icon: const Icon(Icons.policy_outlined),
+                    label: const Text('Read the privacy policy'),
+                  ),
+                ),
               ],
               primary: 'Get started',
               onPrimary: _next,

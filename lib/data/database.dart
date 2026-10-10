@@ -134,6 +134,13 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// "Delete all data": every row in every table, in one transaction.
+  Future<void> deleteEverything() => transaction(() async {
+        for (final table in allTables) {
+          await delete(table).go();
+        }
+      });
+
   /// Opens the encrypted database on a background isolate (PRD §10.7 rule 3).
   ///
   /// [hexKey] is a random 256-bit key from the Android Keystore. Because it is
