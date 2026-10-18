@@ -67,20 +67,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/learn',
-                builder: (_, _) => const LearnScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'community',
-                    builder: (_, _) => const CommunityScreen(),
-                  ),
-                  GoRoute(
-                    path: 'evidence',
-                    builder: (_, _) => const EvidenceLibraryScreen(),
-                  ),
-                ],
-              ),
+              GoRoute(path: '/learn', builder: (_, _) => const LearnScreen()),
             ],
           ),
         ],
@@ -98,6 +85,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/events', builder: (_, _) => const AllEventsScreen()),
+      // Detail pages live outside the tab shell so they get one app bar.
+      GoRoute(path: '/community', builder: (_, _) => const CommunityScreen()),
+      GoRoute(
+        path: '/evidence',
+        builder: (_, _) => const EvidenceLibraryScreen(),
+      ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(path: '/treatments', builder: (_, _) => const TreatmentsScreen()),
       GoRoute(path: '/self-check', builder: (_, _) => const SelfCheckScreen()),

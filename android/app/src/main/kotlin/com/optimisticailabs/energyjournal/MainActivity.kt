@@ -118,7 +118,8 @@ class MainActivity : FlutterFragmentActivity() {
                             Uri.parse("package:$packageName")),
                     ).any {
                         try {
-                            startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+                            // Same task (no NEW_TASK), so Back returns here.
+                            startActivity(it); true
                         } catch (e: Exception) { false }
                     }
                     result.success(opened)

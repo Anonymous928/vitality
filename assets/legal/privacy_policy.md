@@ -1,6 +1,6 @@
 # Afterglow privacy policy
 
-Last updated: 10 October 2026
+Last updated: 18 October 2026
 
 Afterglow is a private journal for tracking post-orgasmic illness syndrome (POIS) symptoms. This policy explains what happens to your information. The short version: **everything you enter stays on your phone, and we never receive any of it.**
 

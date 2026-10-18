@@ -85,11 +85,11 @@ class EpisodeDetailScreen extends ConsumerWidget {
     }
 
     final recovered = e.recoveredAt != null;
-    final status = recovered
-        ? 'Back to normal after '
-              '${formatHours(e.recoveredAt!.difference(e.occurredAt).inMinutes / 60)}'
-              '${e.recoveryPct == null ? '' : ' (${e.recoveryPct}% of usual)'}'
-        : 'Recovering · day ${DateTime.now().difference(e.occurredAt).inDays + 1}';
+    final status = recovered ? 'Back to normal' : 'Recovering';
+    final statusDetail = recovered
+        ? 'after ${formatHours(e.recoveredAt!.difference(e.occurredAt).inMinutes / 60)}'
+              '${e.recoveryPct == null ? '' : ' · ${e.recoveryPct}% of usual'}'
+        : 'Day ${DateTime.now().difference(e.occurredAt).inDays + 1}';
 
     final details = [
       if (e.sleepQuality != null) 'Sleep ${e.sleepQuality}/5',
@@ -138,6 +138,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                 recovered ? Icons.wb_sunny_outlined : Icons.hourglass_bottom,
               ),
               title: Text(status),
+              subtitle: Text(statusDetail),
               trailing: recovered
                   ? TextButton(
                       onPressed: () => _reopen(ref, e),

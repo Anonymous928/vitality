@@ -20,7 +20,7 @@ class LearnScreen extends StatelessWidget {
           icon: Icons.science_outlined,
           title: 'Evidence library',
           subtitle: 'What research says about each treatment type',
-          onTap: () => context.go('/learn/evidence'),
+          onTap: () => context.push('/evidence'),
         ),
         const _Section(
           icon: Icons.self_improvement,
@@ -41,7 +41,7 @@ class LearnScreen extends StatelessWidget {
           icon: Icons.forum_outlined,
           title: 'Community',
           subtitle: 'r/POIS and the POISCenter forum',
-          onTap: () => context.go('/learn/community'),
+          onTap: () => context.push('/community'),
         ),
       ],
     );
