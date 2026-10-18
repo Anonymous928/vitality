@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/domain.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
+import '../episodes/episode_screens.dart';
 
 enum _View { month, year }
 
@@ -34,15 +36,22 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
         const SizedBox(height: 16),
         if (_view == _View.month)
-          _MonthView(
-            month: _month,
-            onChange: (m) => setState(() => _month = m),
-          )
+          _MonthView(month: _month, onChange: (m) => setState(() => _month = m))
         else
-          _YearView(year: _month.year,
-              onChange: (y) => setState(() => _month = DateTime(y, _month.month))),
+          _YearView(
+            year: _month.year,
+            onChange: (y) => setState(() => _month = DateTime(y, _month.month)),
+          ),
         const SizedBox(height: 20),
         const SeverityLegend(),
+        const SizedBox(height: 16),
+        Center(
+          child: OutlinedButton.icon(
+            onPressed: () => context.push('/events'),
+            icon: const Icon(Icons.list_alt),
+            label: const Text('All events'),
+          ),
+        ),
       ],
     );
   }
@@ -64,17 +73,18 @@ class _MonthView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final loc = MaterialLocalizations.of(context);
-    final summaries = ref.watch(monthSummariesProvider(month)).value ?? const {};
+    final summaries =
+        ref.watch(monthSummariesProvider(month)).value ?? const {};
     final ongoing = _ongoingDays(ref.watch(activeEpisodeProvider).value);
     final today = dayKey(DateTime.now());
 
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     final firstWeekday = loc.firstDayOfWeekIndex; // 0 = Sunday
-    final leading = (DateTime(month.year, month.month, 1).weekday % 7 -
-            firstWeekday) %
-        7;
+    final leading =
+        (DateTime(month.year, month.month, 1).weekday % 7 - firstWeekday) % 7;
     final isCurrentMonth =
-        month.year == DateTime.now().year && month.month == DateTime.now().month;
+        month.year == DateTime.now().year &&
+        month.month == DateTime.now().month;
 
     return Column(
       children: [
@@ -86,9 +96,11 @@ class _MonthView extends ConsumerWidget {
               onPressed: () => onChange(DateTime(month.year, month.month - 1)),
             ),
             Expanded(
-              child: Text(loc.formatMonthYear(month),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium),
+              child: Text(
+                loc.formatMonthYear(month),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium,
+              ),
             ),
             IconButton(
               tooltip: 'Next month',
@@ -118,7 +130,10 @@ class _MonthView extends ConsumerWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: leading + daysInMonth,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7, mainAxisSpacing: 4, crossAxisSpacing: 4),
+            crossAxisCount: 7,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+          ),
           itemBuilder: (context, i) {
             if (i < leading) return const SizedBox.shrink();
             final date = DateTime(month.year, month.month, i - leading + 1);
@@ -155,26 +170,38 @@ class _DayCell extends StatelessWidget {
     final sev = summary?.maxSeverity;
     final inEpisode = summary?.activeEpisodeId != null || ongoing;
 
-    final bg = sev?.color ??
+    final bg =
+        sev?.color ??
         (inEpisode ? scheme.secondaryContainer : scheme.surfaceContainerLow);
-    final fg = sev?.onColor ??
+    final fg =
+        sev?.onColor ??
         (inEpisode ? scheme.onSecondaryContainer : scheme.onSurface);
-    final label = sev?.label ?? (inEpisode ? 'Episode, no check-in' : 'No entries');
+    final label =
+        sev?.label ?? (inEpisode ? 'Episode, no check-in' : 'No entries');
 
     return Semantics(
-      label: '${MaterialLocalizations.of(context).formatFullDate(date)}: $label',
+      label:
+          '${MaterialLocalizations.of(context).formatFullDate(date)}: $label',
+      button: !future,
       excludeSemantics: true,
-      child: Opacity(
-        opacity: future ? 0.4 : 1,
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-            border: isToday ? Border.all(color: scheme.primary, width: 2) : null,
+      child: GestureDetector(
+        onTap: future ? null : () => showDaySheet(context, date),
+        child: Opacity(
+          opacity: future ? 0.4 : 1,
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(10),
+              border: isToday
+                  ? Border.all(color: scheme.primary, width: 2)
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '${date.day}',
+              style: TextStyle(color: fg, fontWeight: FontWeight.w500),
+            ),
           ),
-          alignment: Alignment.center,
-          child: Text('${date.day}',
-              style: TextStyle(color: fg, fontWeight: FontWeight.w500)),
         ),
       ),
     );
@@ -204,15 +231,18 @@ class _YearView extends ConsumerWidget {
               onPressed: () => onChange(year - 1),
             ),
             Expanded(
-              child: Text('$year',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium),
+              child: Text(
+                '$year',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium,
+              ),
             ),
             IconButton(
               tooltip: 'Next year',
               icon: const Icon(Icons.chevron_right),
-              onPressed:
-                  year >= DateTime.now().year ? null : () => onChange(year + 1),
+              onPressed: year >= DateTime.now().year
+                  ? null
+                  : () => onChange(year + 1),
             ),
           ],
         ),
@@ -235,8 +265,10 @@ class _YearView extends ConsumerWidget {
             children: [
               SizedBox(
                 width: 20,
-                child: Text(d % 5 == 0 || d == 1 ? '$d' : '',
-                    style: theme.textTheme.labelSmall),
+                child: Text(
+                  d % 5 == 0 || d == 1 ? '$d' : '',
+                  style: theme.textTheme.labelSmall,
+                ),
               ),
               for (var m = 1; m <= 12; m++)
                 Expanded(
@@ -254,12 +286,19 @@ class _YearView extends ConsumerWidget {
     );
   }
 
-  Widget _pixel(ColorScheme scheme, Map<int, DailySummary> summaries,
-      Set<int> ongoing, int year, int m, int d) {
+  Widget _pixel(
+    ColorScheme scheme,
+    Map<int, DailySummary> summaries,
+    Set<int> ongoing,
+    int year,
+    int m,
+    int d,
+  ) {
     if (d > DateTime(year, m + 1, 0).day) return const SizedBox.shrink();
     final key = dayKey(DateTime(year, m, d));
     final s = summaries[key];
-    final color = s?.maxSeverity?.color ??
+    final color =
+        s?.maxSeverity?.color ??
         (s?.activeEpisodeId != null || ongoing.contains(key)
             ? scheme.secondaryContainer
             : scheme.surfaceContainerHighest);
@@ -284,8 +323,12 @@ class SeverityLegend extends StatelessWidget {
       runSpacing: 8,
       alignment: WrapAlignment.center,
       children: [
-        for (final s in Severity.values) _LegendItem(color: s.color, label: s.label),
-        _LegendItem(color: scheme.secondaryContainer, label: 'Episode, no check-in'),
+        for (final s in Severity.values)
+          _LegendItem(color: s.color, label: s.label),
+        _LegendItem(
+          color: scheme.secondaryContainer,
+          label: 'Episode, no check-in',
+        ),
       ],
     );
   }
@@ -305,7 +348,9 @@ class _LegendItem extends StatelessWidget {
           width: 14,
           height: 14,
           decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(3)),
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
         ),
         const SizedBox(width: 6),
         Text(label, style: Theme.of(context).textTheme.labelMedium),

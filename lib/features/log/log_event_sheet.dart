@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/domain.dart';
+import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../notifications/check_in_scheduler.dart';
 
-Future<void> showLogEventSheet(BuildContext context) {
+/// New event, or edit [editing] when given.
+Future<void> showLogEventSheet(BuildContext context, {Episode? editing}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     useRootNavigator: true, // cover the bottom NavigationBar
     showDragHandle: true,
     useSafeArea: true,
-    builder: (_) => const LogEventSheet(),
+    builder: (_) => LogEventSheet(editing: editing),
   );
 }
 
@@ -20,7 +22,8 @@ enum _WhenPreset { now, hourAgo, lastNight, pick }
 
 /// Fast path: When (defaults to "Just now") → Type → Save = 2 taps.
 class LogEventSheet extends ConsumerStatefulWidget {
-  const LogEventSheet({super.key});
+  const LogEventSheet({super.key, this.editing});
+  final Episode? editing;
 
   @override
   ConsumerState<LogEventSheet> createState() => _LogEventSheetState();
@@ -37,6 +40,27 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
   int? _stress;
   final _pre = <String>{};
   final _note = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.editing;
+    if (e != null) {
+      _when = _WhenPreset.pick;
+      _picked = e.occurredAt;
+      _type = e.type;
+      _sleep = e.sleepQuality;
+      _alcohol = e.alcohol;
+      _stress = e.stress;
+      _pre.addAll(e.preInterventions);
+      _note.text = e.note ?? '';
+      _showDetails = _sleep != null ||
+          _alcohol != null ||
+          _stress != null ||
+          _pre.isNotEmpty ||
+          _note.text.isNotEmpty;
+    }
+  }
 
   @override
   void dispose() {
@@ -63,7 +87,7 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
     final date = await showDatePicker(
       context: context,
       initialDate: _picked ?? now,
-      firstDate: now.subtract(const Duration(days: 365)),
+      firstDate: DateTime(2000),
       lastDate: now,
     );
     if (date == null || !mounted) return;
@@ -88,8 +112,36 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
     final messenger = ScaffoldMessenger.of(context);
     final occurredAt = _occurredAt;
 
+    final note = _note.text.trim().isEmpty ? null : _note.text.trim();
+
     // Optimistic UI: close and confirm immediately, write in the background.
     Navigator.of(context).pop();
+
+    final editing = widget.editing;
+    if (editing != null) {
+      messenger.showSnackBar(const SnackBar(content: Text('Event updated')));
+      repo
+          .updateEpisode(editing.id,
+              occurredAt: occurredAt,
+              type: type,
+              sleepQuality: _sleep,
+              alcohol: _alcohol,
+              stress: _stress,
+              preInterventions: _pre.toList(),
+              note: note)
+          .then((_) {
+        // Reminders follow the (possibly changed) event time.
+        if (editing.recoveredAt == null) {
+          CheckInScheduler.instance.scheduleFor(
+            episodeId: editing.id,
+            occurredAt: occurredAt,
+            text: settings.notificationText,
+          );
+        }
+      });
+      return;
+    }
+
     messenger.showSnackBar(const SnackBar(
       content: Text('Logged. We\'ll check in on you gently.'),
     ));
@@ -102,7 +154,7 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
           alcohol: _alcohol,
           stress: _stress,
           preInterventions: _pre.toList(),
-          note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+          note: note,
         )
         .then((id) async {
       await CheckInScheduler.instance.requestPermission();
@@ -125,7 +177,8 @@ class _LogEventSheetState extends ConsumerState<LogEventSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Log event', style: theme.textTheme.titleLarge),
+            Text(widget.editing == null ? 'Log event' : 'Edit event',
+                style: theme.textTheme.titleLarge),
             const SizedBox(height: 20),
             Text('When?', style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),

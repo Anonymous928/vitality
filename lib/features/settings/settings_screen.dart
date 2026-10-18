@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/domain.dart';
 import '../../core/native_bridge.dart';
@@ -10,6 +11,7 @@ import '../../data/app_settings.dart';
 import '../../data/providers.dart';
 import '../../notifications/check_in_scheduler.dart';
 import '../lock/lock_gate.dart';
+import '../../core/brand.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -21,11 +23,14 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     Widget header(String t) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text(t,
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(color: theme.colorScheme.primary)),
-        );
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        t,
+        style: theme.textTheme.titleSmall?.copyWith(
+          color: theme.colorScheme.primary,
+        ),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -37,17 +42,20 @@ class SettingsScreen extends ConsumerWidget {
             child: SegmentedButton<ThemeMode>(
               segments: const [
                 ButtonSegment(
-                    value: ThemeMode.dark,
-                    icon: Icon(Icons.dark_mode_outlined),
-                    label: Text('Dark')),
+                  value: ThemeMode.dark,
+                  icon: Icon(Icons.dark_mode_outlined),
+                  label: Text('Dark'),
+                ),
                 ButtonSegment(
-                    value: ThemeMode.light,
-                    icon: Icon(Icons.light_mode_outlined),
-                    label: Text('Light')),
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode_outlined),
+                  label: Text('Light'),
+                ),
                 ButtonSegment(
-                    value: ThemeMode.system,
-                    icon: Icon(Icons.brightness_auto_outlined),
-                    label: Text('System')),
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.brightness_auto_outlined),
+                  label: Text('System'),
+                ),
               ],
               selected: {s.themeMode},
               onSelectionChanged: (v) =>
@@ -96,6 +104,21 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _pickTopSymptoms(context, ref),
           ),
           ListTile(
+            title: const Text('Send a test reminder'),
+            subtitle: const Text('Arrives in about a minute'),
+            trailing: const Icon(Icons.notifications_active_outlined),
+            onTap: () => _testReminder(context, ref),
+          ),
+          ListTile(
+            title: const Text('Reminders not arriving?'),
+            subtitle: const Text(
+              'Some phones stop reminders to save battery. Allow this app '
+              'to run in the background.',
+            ),
+            trailing: const Icon(Icons.battery_saver_outlined),
+            onTap: NativeBridge.openBatterySettings,
+          ),
+          ListTile(
             title: const Text('Reminder text'),
             subtitle: Text(s.notificationText),
             trailing: const Icon(Icons.edit_outlined),
@@ -117,7 +140,8 @@ class SettingsScreen extends ConsumerWidget {
           SwitchListTile(
             title: const Text('Hide in recent apps'),
             subtitle: const Text(
-                'Blocks screenshots and hides content in the app switcher'),
+              'Blocks screenshots and hides content in the app switcher',
+            ),
             value: s.secureScreen,
             onChanged: (v) => ctl.update((x) => x.copyWith(secureScreen: v)),
           ),
@@ -128,10 +152,14 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/privacy'),
           ),
           ListTile(
-            leading: Icon(Icons.delete_forever_outlined,
-                color: theme.colorScheme.error),
-            title: Text('Delete all data',
-                style: TextStyle(color: theme.colorScheme.error)),
+            leading: Icon(
+              Icons.delete_forever_outlined,
+              color: theme.colorScheme.error,
+            ),
+            title: Text(
+              'Delete all data',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
             subtitle: const Text('Permanently erase everything in this app'),
             onTap: () => _deleteAll(context, ref),
           ),
@@ -139,22 +167,33 @@ class SettingsScreen extends ConsumerWidget {
             leading: Icon(Icons.wifi_off),
             title: Text('No internet access'),
             subtitle: Text(
-                'This app has no network permission. Your data stays on '
-                'this phone unless you export it.'),
+              'This app has no network permission. Your data stays on '
+              'this phone unless you export it.',
+            ),
           ),
           header('About'),
           ListTile(
+            leading: const Icon(Icons.feedback_outlined),
+            title: const Text('Send feedback'),
+            subtitle: const Text('Report a problem or suggest an idea'),
+            onTap: () => _feedback(context),
+          ),
+          ListTile(
             leading: const Icon(Icons.info_outline),
-            title: const Text('About Afterglow'),
+            title: const Text('About $appName'),
             subtitle: const Text('Version and open-source licences'),
-            onTap: () => showAboutDialog(
-              context: context,
-              applicationName: 'Afterglow',
-              applicationVersion: '1.0.0',
-              applicationLegalese:
-                  'A private, offline symptom journal. Not a medical device; '
-                  'it does not diagnose or recommend treatment.',
-            ),
+            onTap: () async {
+              final info = await NativeBridge.appInfo();
+              if (!context.mounted) return;
+              showAboutDialog(
+                context: context,
+                applicationName: appName,
+                applicationVersion: '${info['version']} (${info['build']})',
+                applicationLegalese:
+                    'A private, offline symptom journal. Not a medical device; '
+                    'it does not diagnose or recommend treatment.',
+              );
+            },
           ),
           const SizedBox(height: 24),
         ],
@@ -162,26 +201,77 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _testReminder(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (!await CheckInScheduler.instance.requestPermission()) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Notifications are turned off for this app.'),
+        ),
+      );
+      return;
+    }
+    await CheckInScheduler.instance.scheduleTest(
+      ref.read(settingsProvider).notificationText,
+    );
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Test reminder set for about 1 minute from now. If it '
+          "doesn't arrive, tap \"Reminders not arriving?\".",
+        ),
+        duration: Duration(seconds: 6),
+      ),
+    );
+  }
+
+  Future<void> _feedback(BuildContext context) async {
+    final info = await NativeBridge.appInfo();
+    // Diagnostics only: never include anything the user has logged.
+    final body =
+        '\n\n---\n'
+        'Please don\'t include personal health details.\n'
+        '$appName ${info['version']} (${info['build']}) · '
+        'Android ${info['android']} · ${info['device']}';
+    final uri = Uri(
+      scheme: 'mailto',
+      path: supportEmail,
+      query:
+          'subject=${Uri.encodeComponent('$appName feedback')}'
+          '&body=${Uri.encodeComponent(body)}',
+    );
+    if (!await launchUrl(uri) && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email us at $supportEmail')),
+      );
+    }
+  }
+
   Future<void> _deleteAll(BuildContext context, WidgetRef ref) async {
     final theme = Theme.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: Icon(Icons.delete_forever_outlined,
-            color: theme.colorScheme.error),
+        icon: Icon(
+          Icons.delete_forever_outlined,
+          color: theme.colorScheme.error,
+        ),
         title: const Text('Delete all data?'),
         content: const Text(
-            'This permanently erases every event, check-in, treatment, '
-            'self-check and setting, and cancels all reminders. It cannot be '
-            'undone. Export first if you want to keep a copy.'),
+          'This permanently erases every event, check-in, treatment, '
+          'self-check and setting, and cancels all reminders. It cannot be '
+          'undone. Export first if you want to keep a copy.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError),
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: theme.colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete everything'),
           ),
@@ -207,19 +297,23 @@ class SettingsScreen extends ConsumerWidget {
         icon: const Icon(Icons.warning_amber_rounded),
         title: const Text('This file is not encrypted'),
         content: const Text(
-            'The export contains everything you have logged, in plain text. '
-            'Anyone who can open the file can read it. Store it somewhere '
-            'private.'),
+          'The export contains everything you have logged, in plain text. '
+          'Anyone who can open the file can read it. Store it somewhere '
+          'private.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(context, 'share'),
-              child: const Text('Share')),
+            onPressed: () => Navigator.pop(context, 'share'),
+            child: const Text('Share'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, 'save'),
-              child: const Text('Save to device')),
+            onPressed: () => Navigator.pop(context, 'save'),
+            child: const Text('Save to device'),
+          ),
         ],
       ),
     );
@@ -230,16 +324,21 @@ class SettingsScreen extends ConsumerWidget {
     final name = 'journal-export-${d.year}-${two(d.month)}-${two(d.day)}.json';
     if (choice == 'save') {
       final ok = await NativeBridge.saveDocument(
-          name: name, mime: 'application/json', bytes: bytes);
+        name: name,
+        mime: 'application/json',
+        bytes: bytes,
+      );
       if (ok && context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Export saved')));
       }
     } else {
-      await SharePlus.instance.share(ShareParams(
-        files: [XFile.fromData(bytes, mimeType: 'application/json')],
-        fileNameOverrides: [name],
-      ));
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile.fromData(bytes, mimeType: 'application/json')],
+          fileNameOverrides: [name],
+        ),
+      );
     }
   }
 
@@ -257,9 +356,12 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _editNotificationText(
-      BuildContext context, WidgetRef ref) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final ctl = TextEditingController(
-        text: ref.read(settingsProvider).notificationText);
+      text: ref.read(settingsProvider).notificationText,
+    );
     final text = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -269,15 +371,18 @@ class SettingsScreen extends ConsumerWidget {
           autofocus: true,
           maxLength: 60,
           decoration: const InputDecoration(
-              helperText: 'Keep it neutral; it can appear on your screen'),
+            helperText: 'Keep it neutral; it can appear on your screen',
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, ctl.text.trim()),
-              child: const Text('Save')),
+            onPressed: () => Navigator.pop(context, ctl.text.trim()),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -321,12 +426,13 @@ class _TopSymptomsDialogState extends State<_TopSymptomsDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
-            onPressed:
-                _sel.isEmpty ? null : () => Navigator.pop(context, _sel),
-            child: const Text('Save')),
+          onPressed: _sel.isEmpty ? null : () => Navigator.pop(context, _sel),
+          child: const Text('Save'),
+        ),
       ],
     );
   }

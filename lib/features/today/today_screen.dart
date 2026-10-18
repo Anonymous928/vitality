@@ -41,7 +41,14 @@ class TodayScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
           const SizedBox(height: 8),
-          Center(child: RecoveryRing(episode: active)),
+          Center(
+            child: GestureDetector(
+              onTap: active == null
+                  ? null
+                  : () => context.push('/episode/${active.id}'),
+              child: RecoveryRing(episode: active),
+            ),
+          ),
           const SizedBox(height: 24),
           if (active != null) _CheckInCard(episode: active),
           const _Last30Card(),

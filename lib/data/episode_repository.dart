@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:drift/drift.dart';
 
 import '../core/domain.dart';
@@ -30,6 +32,30 @@ class EpisodeRepository {
   Future<Episode?> episode(int id) =>
       (_db.select(_db.episodes)..where((e) => e.id.equals(id)))
           .getSingleOrNull();
+
+  Stream<Episode?> watchEpisode(int id) =>
+      (_db.select(_db.episodes)..where((e) => e.id.equals(id)))
+          .watchSingleOrNull();
+
+  Stream<List<CheckIn>> watchCheckIns(int episodeId) {
+    final q = _db.select(_db.checkIns)
+      ..where((c) => c.episodeId.equals(episodeId))
+      ..orderBy([(c) => OrderingTerm.asc(c.at)]);
+    return q.watch();
+  }
+
+  /// Episodes that cover [day] (dayKey): started on or before it and not
+  /// recovered before it.
+  Stream<List<Episode>> watchEpisodesOnDay(int day) {
+    final start = dayFromKey(day);
+    final end = dayFromKey(day + 1);
+    final q = _db.select(_db.episodes)
+      ..where((e) =>
+          e.occurredAt.isSmallerThanValue(end) &
+          (e.recoveredAt.isNull() | e.recoveredAt.isBiggerOrEqualValue(start)))
+      ..orderBy([(e) => OrderingTerm.asc(e.occurredAt)]);
+    return q.watch();
+  }
 
   Stream<CheckIn?> watchLatestCheckIn(int episodeId) {
     final q = _db.select(_db.checkIns)
@@ -107,7 +133,7 @@ class EpisodeRepository {
     DateTime? at,
   }) {
     final when = at ?? DateTime.now();
-    return _db.transaction(() async {
+    return _mutate(episodeId, () async {
       await _db.into(_db.checkIns).insert(CheckInsCompanion.insert(
             episodeId: episodeId,
             at: when,
@@ -116,52 +142,109 @@ class EpisodeRepository {
             severity: checkInSeverity(overall.value, scores),
             note: Value(note),
           ));
-      await _refreshEpisodeAggregates(episodeId);
+    });
+  }
+
+  Future<void> updateCheckIn(
+    CheckIn c, {
+    required Feeling overall,
+    required Map<SymptomCluster, Severity> scores,
+  }) {
+    return _mutate(c.episodeId, () async {
+      await (_db.update(_db.checkIns)..where((x) => x.id.equals(c.id)))
+          .write(CheckInsCompanion(
+        overall: Value(overall.value),
+        symptomScores: Value(scores),
+        severity: Value(checkInSeverity(overall.value, scores)),
+      ));
+    });
+  }
+
+  Future<void> deleteCheckIn(CheckIn c) {
+    return _mutate(c.episodeId, () async {
+      await (_db.delete(_db.checkIns)..where((x) => x.id.equals(c.id))).go();
+    });
+  }
+
+  Future<void> updateEpisode(
+    int episodeId, {
+    required DateTime occurredAt,
+    required EpisodeType type,
+    int? sleepQuality,
+    bool? alcohol,
+    int? stress,
+    List<String> preInterventions = const [],
+    String? note,
+  }) {
+    return _mutate(episodeId, () async {
+      await (_db.update(_db.episodes)..where((e) => e.id.equals(episodeId)))
+          .write(EpisodesCompanion(
+        occurredAt: Value(occurredAt),
+        type: Value(type),
+        sleepQuality: Value(sleepQuality),
+        alcohol: Value(alcohol),
+        stress: Value(stress),
+        preInterventions: Value(preInterventions),
+        note: Value(note),
+      ));
     });
   }
 
   Future<void> markRecovered(int episodeId, {int? recoveryPct, DateTime? at}) {
-    return _db.transaction(() async {
+    return _mutate(episodeId, () async {
       await (_db.update(_db.episodes)..where((e) => e.id.equals(episodeId)))
           .write(EpisodesCompanion(
         recoveredAt: Value(at ?? DateTime.now()),
         recoveryPct: Value(recoveryPct),
       ));
-      await _refreshEpisodeAggregates(episodeId);
+    });
+  }
+
+  /// Undo "back to normal" (e.g. tapped by mistake).
+  Future<void> reopen(int episodeId) {
+    return _mutate(episodeId, () async {
+      await (_db.update(_db.episodes)..where((e) => e.id.equals(episodeId)))
+          .write(const EpisodesCompanion(
+        recoveredAt: Value(null),
+        recoveryPct: Value(null),
+      ));
     });
   }
 
   Future<void> deleteEpisode(int episodeId) {
-    return _db.transaction(() async {
-      final e = await episode(episodeId);
-      if (e == null) return;
+    return _mutate(episodeId, () async {
+      // Check-ins go with it (ON DELETE CASCADE).
       await (_db.delete(_db.episodes)..where((x) => x.id.equals(episodeId)))
           .go();
-      await _recomputeDays(
-          dayKey(e.occurredAt), dayKey(e.recoveredAt ?? DateTime.now()));
     });
   }
 
   // ------------------------------------------------------------- internal
 
-  Future<void> _refreshEpisodeAggregates(int episodeId) async {
+  /// Every change to an episode or its check-ins goes through here: apply
+  /// [change], refresh the episode's aggregates, then rebuild the day
+  /// summaries over the union of the days it covered before and after, so
+  /// an edit that moves or shortens an episode leaves nothing stale.
+  Future<void> _mutate(int episodeId, Future<void> Function() change) {
+    return _db.transaction(() async {
+      final before = await _dayRange(episodeId);
+      await change();
+      await _refreshEpisodeAggregates(episodeId);
+      final after = await _dayRange(episodeId);
+      final ranges = [?before, ?after];
+      if (ranges.isEmpty) return;
+      await _recomputeDays(
+        ranges.map((r) => r.$1).reduce(math.min),
+        ranges.map((r) => r.$2).reduce(math.max),
+      );
+    });
+  }
+
+  /// Days an episode touches: from the event to the later of recovery and
+  /// its last check-in. Null if the episode doesn't exist.
+  Future<(int, int)?> _dayRange(int episodeId) async {
     final e = await episode(episodeId);
-    if (e == null) return;
-
-    final peak = _db.checkIns.severity.max();
-    final count = _db.checkIns.id.count();
-    final row = await (_db.selectOnly(_db.checkIns)
-          ..addColumns([peak, count])
-          ..where(_db.checkIns.episodeId.equals(episodeId)))
-        .getSingle();
-    final peakIdx = row.read(peak);
-
-    await (_db.update(_db.episodes)..where((x) => x.id.equals(episodeId)))
-        .write(EpisodesCompanion(
-      peakSeverity: Value(peakIdx == null ? null : Severity.values[peakIdx]),
-      checkInCount: Value(row.read(count) ?? 0),
-    ));
-
+    if (e == null) return null;
     final lastCheckIn = await (_db.selectOnly(_db.checkIns)
           ..addColumns([_db.checkIns.at.max()])
           ..where(_db.checkIns.episodeId.equals(episodeId)))
@@ -170,7 +253,23 @@ class EpisodeRepository {
     final end = [e.occurredAt, e.recoveredAt, lastCheckIn]
         .whereType<DateTime>()
         .reduce((a, b) => a.isAfter(b) ? a : b);
-    await _recomputeDays(dayKey(e.occurredAt), dayKey(end));
+    return (dayKey(e.occurredAt), dayKey(end));
+  }
+
+  Future<void> _refreshEpisodeAggregates(int episodeId) async {
+    if (await episode(episodeId) == null) return;
+    final peak = _db.checkIns.severity.max();
+    final count = _db.checkIns.id.count();
+    final row = await (_db.selectOnly(_db.checkIns)
+          ..addColumns([peak, count])
+          ..where(_db.checkIns.episodeId.equals(episodeId)))
+        .getSingle();
+    final peakIdx = row.read(peak);
+    await (_db.update(_db.episodes)..where((x) => x.id.equals(episodeId)))
+        .write(EpisodesCompanion(
+      peakSeverity: Value(peakIdx == null ? null : Severity.values[peakIdx]),
+      checkInCount: Value(row.read(count) ?? 0),
+    ));
   }
 
   /// Rebuilds DailySummaries for an inclusive range of days. Ranges are small

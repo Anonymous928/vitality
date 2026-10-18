@@ -3,14 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/domain.dart';
+import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../notifications/check_in_scheduler.dart';
 
 /// "Fog Mode" check-in (PRD §6.2): large targets, ≤3 taps, chips instead of
 /// sliders. Face → (optional symptom chips) → Save.
 class CheckInScreen extends ConsumerStatefulWidget {
-  const CheckInScreen({super.key, required this.episodeId});
+  const CheckInScreen({super.key, required this.episodeId, this.editing});
   final int episodeId;
+
+  /// When set, edits this check-in instead of adding one.
+  final CheckIn? editing;
 
   @override
   ConsumerState<CheckInScreen> createState() => _CheckInScreenState();
@@ -21,23 +25,63 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
   final _scores = <SymptomCluster, Severity>{};
   bool _allSymptoms = false;
 
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.editing;
+    if (c != null) {
+      _feeling = Feeling.fromValue(c.overall);
+      _scores.addAll(c.symptomScores);
+      final top = ref.read(settingsProvider).topSymptoms;
+      _allSymptoms = _scores.keys.any((s) => !top.contains(s));
+    }
+  }
+
   void _save() {
     final feeling = _feeling;
     if (feeling == null) return;
-    ref.read(episodeRepositoryProvider).addCheckIn(
-          episodeId: widget.episodeId,
-          overall: feeling,
-          scores: Map.of(_scores),
-        );
+    final repo = ref.read(episodeRepositoryProvider);
+    final editing = widget.editing;
+    if (editing != null) {
+      repo.updateCheckIn(editing, overall: feeling, scores: Map.of(_scores));
+    } else {
+      repo.addCheckIn(
+        episodeId: widget.episodeId,
+        overall: feeling,
+        scores: Map.of(_scores),
+      );
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(editing != null ? 'Check-in updated' : 'Check-in saved')));
+    context.pop();
+  }
+
+  Future<void> _delete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this check-in?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    ref.read(episodeRepositoryProvider).deleteCheckIn(widget.editing!);
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Check-in saved')));
+        .showSnackBar(const SnackBar(content: Text('Check-in deleted')));
     context.pop();
   }
 
   Future<void> _recovered() async {
     final pct = await showDialog<int>(
       context: context,
-      builder: (_) => const _RecoveredDialog(),
+      builder: (_) => const RecoveredDialog(),
     );
     if (pct == null || !mounted) return;
     final repo = ref.read(episodeRepositoryProvider);
@@ -62,7 +106,17 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     final shown = _allSymptoms ? SymptomCluster.values : top;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Check-in')),
+      appBar: AppBar(
+        title: Text(widget.editing == null ? 'Check-in' : 'Edit check-in'),
+        actions: [
+          if (widget.editing != null)
+            IconButton(
+              tooltip: 'Delete',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _delete,
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -106,6 +160,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                 FilledButton.styleFrom(minimumSize: const Size.fromHeight(64)),
             child: const Text('Save', style: TextStyle(fontSize: 18)),
           ),
+          if (widget.editing == null) ...[
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _recovered,
@@ -114,6 +169,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                 OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             label: const Text("I'm back to normal"),
           ),
+          ],
         ],
       ),
     );
@@ -207,13 +263,13 @@ class _SymptomRow extends StatelessWidget {
   }
 }
 
-class _RecoveredDialog extends StatefulWidget {
-  const _RecoveredDialog();
+class RecoveredDialog extends StatefulWidget {
+  const RecoveredDialog({super.key});
   @override
-  State<_RecoveredDialog> createState() => _RecoveredDialogState();
+  State<RecoveredDialog> createState() => _RecoveredDialogState();
 }
 
-class _RecoveredDialogState extends State<_RecoveredDialog> {
+class _RecoveredDialogState extends State<RecoveredDialog> {
   int _pct = 100;
 
   @override

@@ -1,4 +1,4 @@
-package com.afterglowjournal.afterglow
+package com.optimisticailabs.energyjournal
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

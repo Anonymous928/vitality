@@ -19,6 +19,8 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: dart run build_runner build
+      # Fails if the database schema changed without a new snapshot.
+      - run: dart run drift_dev make-migrations && git diff --exit-code drift_schemas/
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --release

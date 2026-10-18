@@ -75,4 +75,4 @@ If this policy changes, the updated version will be included in an app update an
 
 ## Contact
 
-Questions about privacy: [support email]
+Questions about privacy: optimisticailabs@gmail.com

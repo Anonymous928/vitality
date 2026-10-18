@@ -9,6 +9,7 @@ import '../core/domain.dart';
 import '../data/analysis.dart';
 import '../data/database.dart';
 import '../data/self_check.dart';
+import '../core/brand.dart';
 
 /// Doctor-ready report (PRD §6.5). Built entirely on-device, off the UI
 /// thread (everything in [ReportInput] is plain data, so it can cross into
@@ -87,7 +88,7 @@ Future<Uint8List> buildReportPdf(ReportInput input) async {
   final doc = pw.Document(
     theme: theme,
     title: 'POIS symptom history',
-    creator: 'Afterglow',
+    creator: appName,
   );
   final s = computeInsights(input.episodes, input.checkIns);
   final has = input.sections.contains;
@@ -212,7 +213,7 @@ pw.Widget _header(ReportInput input, InsightsSummary s) {
         [
           ['Generated', _date(input.generatedAt)],
           ['Period covered', period],
-          ['Source', 'Self-logged in the Afterglow app (offline, on-device)'],
+          ['Source', 'Self-logged in the $appName app (offline, on-device)'],
         ],
         widths: const {0: pw.FixedColumnWidth(110)},
       ),

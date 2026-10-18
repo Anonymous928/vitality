@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Display name (placeholder until the final name is chosen). -->
+    <string name="app_name">Afterglow</string>
     <string name="widget_log_event">Log event</string>
     <string name="widget_description">Log an event in one tap</string>
 </resources>

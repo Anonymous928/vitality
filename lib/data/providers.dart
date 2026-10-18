@@ -70,6 +70,18 @@ final latestCheckInProvider = StreamProvider.family<CheckIn?, int>(
       ref.watch(episodeRepositoryProvider).watchLatestCheckIn(episodeId),
 );
 
+final episodeProvider = StreamProvider.family<Episode?, int>(
+  (ref, id) => ref.watch(episodeRepositoryProvider).watchEpisode(id),
+);
+
+final episodeCheckInsProvider = StreamProvider.family<List<CheckIn>, int>(
+  (ref, id) => ref.watch(episodeRepositoryProvider).watchCheckIns(id),
+);
+
+final episodesOnDayProvider = StreamProvider.family<List<Episode>, int>(
+  (ref, day) => ref.watch(episodeRepositoryProvider).watchEpisodesOnDay(day),
+);
+
 final allEpisodesProvider = StreamProvider<List<Episode>>(
   (ref) => ref.watch(episodeRepositoryProvider).watchEpisodes(),
 );

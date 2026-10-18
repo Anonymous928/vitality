@@ -26,6 +26,13 @@ class NativeBridge {
         false;
   }
 
+  /// App version, Android version and device model (for feedback emails).
+  static Future<Map<String, Object?>> appInfo() async =>
+      (await _channel.invokeMapMethod<String, Object?>('appInfo')) ?? const {};
+
+  static Future<bool> openBatterySettings() async =>
+      await _channel.invokeMethod<bool>('openBatterySettings') ?? false;
+
   static Future<void> updateWidget({
     DateTime? episodeStart,
     int? expectedDays,

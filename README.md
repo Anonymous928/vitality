@@ -52,5 +52,13 @@ calendar, ring and 30-day card read only those small rows.
 - `dynamic_color` was dropped because it depends on the decoupled
   `material_ui` package, which conflicts with `package:flutter/material.dart`.
   The wallpaper accent is read through the window channel instead.
-- Application ID `com.afterglowjournal.afterglow` is a placeholder. Change it
-  before the first Play upload, because it can't be changed afterwards.
+- Application ID is `com.optimisticailabs.energyjournal` (permanent once on
+  Play). The display name is a placeholder: change `appName` in
+  `lib/core/brand.dart` and `app_name` in `android/app/src/main/res/values/strings.xml`.
+- **Changing the database schema:** bump `schemaVersion`, add the migration,
+  then `dart run drift_dev make-migrations` (snapshots to `drift_schemas/`,
+  generates migration tests in `test/drift/`). Never change a released schema
+  without a migration: testers' data must survive updates.
+- **Release signing:** `android/key.properties` (git-ignored) points to the
+  upload keystore in `C:\Users\pranj\afterglow-keys\`. Back both up.
+  `flutter build appbundle` produces the Play upload.

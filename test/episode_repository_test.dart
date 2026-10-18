@@ -100,4 +100,62 @@ void main() {
     final r = await db.customSelect('PRAGMA foreign_keys').getSingle();
     expect(r.data.values.first, 1);
   });
+
+  test('moving an event to another day leaves no stale summaries', () async {
+    final t = DateTime(2026, 10, 1, 22);
+    final id = await repo.logEpisode(occurredAt: t, type: EpisodeType.solo);
+    await repo.addCheckIn(
+        episodeId: id, overall: Feeling.bad, at: t.add(const Duration(hours: 2)));
+    final moved = DateTime(2026, 10, 5, 9);
+    await repo.updateEpisode(id, occurredAt: moved, type: EpisodeType.partnered);
+
+    final s = await summaries();
+    // The old event day is gone; the new day is covered.
+    expect(s.containsKey(dayKey(t)), isFalse);
+    expect(s[dayKey(moved)]!.activeEpisodeId, id);
+    expect((await repo.episode(id))!.type, EpisodeType.partnered);
+  });
+
+  test('deleting a check-in recomputes peak and the day', () async {
+    final t = DateTime(2026, 10, 1, 8);
+    final id = await repo.logEpisode(occurredAt: t, type: EpisodeType.solo);
+    await repo.addCheckIn(
+        episodeId: id, overall: Feeling.meh, at: t.add(const Duration(hours: 1)));
+    await repo.addCheckIn(
+        episodeId: id, overall: Feeling.awful, at: t.add(const Duration(days: 1)));
+    final worst = (await repo.watchCheckIns(id).first).last;
+    await repo.deleteCheckIn(worst);
+
+    expect((await repo.episode(id))!.peakSeverity, Severity.mild);
+    final s = await summaries();
+    expect(s[dayKey(t)]!.maxSeverity, Severity.mild);
+    // Still an ongoing-event day, but the deleted rating is gone from it.
+    expect(s[dayKey(t) + 1]!.maxSeverity, isNull);
+    expect(s[dayKey(t) + 1]!.activeEpisodeId, id);
+  });
+
+  test('editing a check-in updates severity', () async {
+    final t = DateTime(2026, 10, 1, 8);
+    final id = await repo.logEpisode(occurredAt: t, type: EpisodeType.solo);
+    await repo.addCheckIn(episodeId: id, overall: Feeling.good, at: t);
+    final c = (await repo.watchCheckIns(id).first).single;
+    await repo.updateCheckIn(c,
+        overall: Feeling.good,
+        scores: {SymptomCluster.cognitive: Severity.severe});
+    expect((await repo.episode(id))!.peakSeverity, Severity.severe);
+    expect((await summaries())[dayKey(t)]!.maxSeverity, Severity.severe);
+  });
+
+  test('reopening a recovered event makes it ongoing again', () async {
+    final t = DateTime(2026, 10, 1, 8);
+    final id = await repo.logEpisode(occurredAt: t, type: EpisodeType.solo);
+    await repo.markRecovered(id, at: t.add(const Duration(days: 3)));
+    expect((await summaries()).length, 4);
+    await repo.reopen(id);
+    expect((await repo.episode(id))!.recoveredAt, isNull);
+    // An ongoing event covers its days, but none carry a rating.
+    final s = await summaries();
+    expect(s.values.every((d) => d.activeEpisodeId == id), isTrue);
+    expect(s.values.every((d) => d.maxSeverity == null), isTrue);
+  });
 }

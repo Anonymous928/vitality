@@ -1,9 +1,10 @@
-package com.afterglowjournal.afterglow
+package com.optimisticailabs.energyjournal
 
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -97,6 +98,30 @@ class MainActivity : FlutterFragmentActivity() {
                         hideStatus = call.argument<Boolean>("hideStatus") ?: false,
                     )
                     result.success(null)
+                }
+                "appInfo" -> {
+                    val info = packageManager.getPackageInfo(packageName, 0)
+                    result.success(mapOf(
+                        "version" to info.versionName,
+                        "build" to (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                            info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()),
+                        "android" to Build.VERSION.RELEASE,
+                        "device" to "${Build.MANUFACTURER} ${Build.MODEL}",
+                    ))
+                }
+                // Battery optimisation list; falls back to this app's settings
+                // page (where OEM battery options such as Vivo's usually live).
+                "openBatterySettings" -> {
+                    val opened = listOf(
+                        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:$packageName")),
+                    ).any {
+                        try {
+                            startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+                        } catch (e: Exception) { false }
+                    }
+                    result.success(opened)
                 }
                 "takeLaunchAction" -> {
                     result.success(launchAction)

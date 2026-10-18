@@ -104,6 +104,23 @@ class CheckInScheduler {
     }
   }
 
+  static const _testId = 0x7fff0000;
+
+  /// Settings → "Send a test reminder": goes through the same scheduling path
+  /// as real check-ins, so it shows whether this phone actually delivers them.
+  Future<void> scheduleTest(String text) async {
+    await _ensureReady();
+    await _plugin.zonedSchedule(
+      id: _testId,
+      title: text,
+      body: 'Test reminder: reminders are working',
+      scheduledDate:
+          tz.TZDateTime.now(tz.UTC).add(const Duration(minutes: 1)),
+      notificationDetails: const NotificationDetails(android: _channel),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
+
   Future<void> cancelAll() async {
     await _ensureReady();
     await _plugin.cancelAll();

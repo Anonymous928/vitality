@@ -1,0 +1,11 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # Schema snapshots + generated migration tests, so every schema
+          # change is tested against data from earlier app versions.
+          databases:
+            app: lib/data/database.dart
+          schema_dir: drift_schemas/
+          test_dir: test/drift/

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/providers.dart';
 import '../lock/lock_gate.dart';
+import '../../core/brand.dart';
 
 /// Material 3 bottom navigation with 4 tabs (PRD §7.2). Each tab keeps its
 /// own navigation stack and scroll position via StatefulShellRoute.
@@ -18,9 +19,9 @@ class AppShell extends ConsumerWidget {
     final lockOn = ref.watch(settingsProvider.select((s) => s.appLock));
     return Scaffold(
       appBar: AppBar(
-        title: Text(shell.currentIndex == 0
-            ? 'Afterglow'
-            : _titles[shell.currentIndex]),
+        title: Text(
+          shell.currentIndex == 0 ? appName : _titles[shell.currentIndex],
+        ),
         actions: [
           if (lockOn)
             IconButton(
@@ -42,21 +43,25 @@ class AppShell extends ConsumerWidget {
             shell.goBranch(i, initialLocation: i == shell.currentIndex),
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.today_outlined),
-              selectedIcon: Icon(Icons.today),
-              label: 'Today'),
+            icon: Icon(Icons.today_outlined),
+            selectedIcon: Icon(Icons.today),
+            label: 'Today',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'Calendar'),
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Calendar',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.insights_outlined),
-              selectedIcon: Icon(Icons.insights),
-              label: 'Insights'),
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: 'Insights',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.menu_book_outlined),
-              selectedIcon: Icon(Icons.menu_book),
-              label: 'Learn'),
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Learn',
+          ),
         ],
       ),
     );
