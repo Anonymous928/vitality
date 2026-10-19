@@ -1,0 +1,7 @@
+# GitHub Pages site (Settings > Pages > Deploy from branch: main, /docs).
+# privacy.md must stay byte-identical to assets/legal/privacy_policy.md
+# (test/content_test.dart), so it has no front matter: GitHub Pages renders
+# it anyway and takes the page title from its first heading.
+title: Optimistic AI Labs
+description: Privacy policy and support
+theme: jekyll-theme-primer

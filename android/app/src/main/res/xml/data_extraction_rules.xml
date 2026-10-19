@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 12+: never copy app data to Google cloud backup or to a new
-     device. The DB key lives in the Keystore and isn't transferable anyway;
-     users move data with the passphrase-encrypted export. -->
+     device. The DB key lives in the Keystore and isn't transferable anyway.
+     The only way data leaves is the user's own (unencrypted) export. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="root" />
