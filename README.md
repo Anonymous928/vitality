@@ -1,4 +1,4 @@
-# Afterglow
+# Vitalité
 
 A private, offline Android companion app for people with Post-Orgasmic Illness
 Syndrome (POIS). Spec: `../POIS_App_PRD.md` (v1.2); summary and decisions in

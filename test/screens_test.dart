@@ -28,7 +28,7 @@ void main() {
         const MaterialApp(home: PrivacyPolicyScreen()));
     await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
-    expect(find.text('Afterglow privacy policy'), findsOneWidget);
+    expect(find.text('Vitalité privacy policy'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('What we collect'), 300);
     expect(find.text('What we collect'), findsOneWidget);
     // "**Nothing.**" is rendered without the asterisks.

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Display name (placeholder until the final name is chosen). -->
-    <string name="app_name">Afterglow</string>
+    <!-- Display name; keep in sync with appName in lib/core/brand.dart. -->
+    <string name="app_name">Vitalité</string>
     <string name="widget_log_event">Log event</string>
     <string name="widget_description">Log an event in one tap</string>
 </resources>
