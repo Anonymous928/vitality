@@ -51,3 +51,31 @@ app.*.map.json
 *.jks
 *.keystore
 key.properties
+# Play App Signing exports (upload certificate, PEPK-encrypted key)
+*.pem
+*.p12
+*.pepk
+*.der
+.env
+.env.*
+
+# Release artifacts copied out of build/ (sideloading, uploads)
+*.apk
+*.aab
+
+# Files pulled from a test phone: reports, data exports, database copies.
+# These can hold health data, so they must never be committed.
+symptom-report-*.pdf
+journal-export-*.json
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+
+# Claude Code per-user settings
+.claude/settings.local.json
+
+# Private planning and handoff docs (kept locally, never published)
+/dev/
+/AGENTS.md
+/CLAUDE.md
